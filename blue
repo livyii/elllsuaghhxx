@@ -452,8 +452,14 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 local WindowOuterBorder = Instance.new("Frame")
 WindowOuterBorder.Name = "WindowOuterBorder"
-WindowOuterBorder.Size = UDim2.new(0, 680, 0, 420)
-WindowOuterBorder.Position = UDim2.new(0.5, -340, 0.5, -210)
+if _G.IsMobile then
+    -- ❄️ Mobile: smaller compact UI
+    WindowOuterBorder.Size = UDim2.new(0, 340, 0, 280)
+    WindowOuterBorder.Position = UDim2.new(0.5, -170, 0.5, -140)
+else
+    WindowOuterBorder.Size = UDim2.new(0, 680, 0, 420)
+    WindowOuterBorder.Position = UDim2.new(0.5, -340, 0.5, -210)
+end
 WindowOuterBorder.BackgroundColor3 = ColorPresets[_G.CurrentTheme].TrayColor
 WindowOuterBorder.BorderSizePixel = 0
 WindowOuterBorder.Active = true
@@ -2814,3 +2820,141 @@ task.spawn(function()
     end
     setupAntiMod()
 end)
+
+-- ❄️ MOBILE FLOATING TOGGLES (replaces keybinds on mobile)
+if _G.IsMobile then
+    local FloatGui = Instance.new("ScreenGui")
+    FloatGui.Name = "ilsa_FloatToggles"
+    FloatGui.ResetOnSpawn = false
+    FloatGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    FloatGui.Parent = PlayerGui
+
+    local FloatBar = Instance.new("Frame")
+    FloatBar.Name = "FloatBar"
+    FloatBar.Size = UDim2.new(0, 56, 0, 230)
+    FloatBar.Position = UDim2.new(1, -70, 0.5, -115)
+    FloatBar.BackgroundColor3 = Color3.fromRGB(220, 238, 248)
+    FloatBar.BackgroundTransparency = 0.12
+    FloatBar.BorderSizePixel = 0
+    FloatBar.Active = true
+    FloatBar.Parent = FloatGui
+
+    local FloatCorner = Instance.new("UICorner")
+    FloatCorner.CornerRadius = UDim.new(0, 12)
+    FloatCorner.Parent = FloatBar
+
+    local FloatStroke = Instance.new("UIStroke")
+    FloatStroke.Color = Color3.fromRGB(145, 210, 240)
+    FloatStroke.Thickness = 1.5
+    FloatStroke.Parent = FloatBar
+
+    local FloatLayout = Instance.new("UIListLayout")
+    FloatLayout.Padding = UDim.new(0, 6)
+    FloatLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    FloatLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    FloatLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    FloatLayout.Parent = FloatBar
+
+    local FloatPad = Instance.new("UIPadding")
+    FloatPad.PaddingTop = UDim.new(0, 8)
+    FloatPad.PaddingBottom = UDim.new(0, 8)
+    FloatPad.Parent = FloatBar
+
+    local function makeFloatBtn(label, getState, setState, colorOn)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 44, 0, 36)
+        btn.BackgroundColor3 = getState() and (colorOn or Color3.fromRGB(145, 210, 240)) or Color3.fromRGB(200, 215, 230)
+        btn.Text = label
+        btn.TextColor3 = Color3.fromRGB(40, 80, 120)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 11
+        btn.AutoButtonColor = true
+        btn.Parent = FloatBar
+
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, 8)
+        c.Parent = btn
+
+        btn.MouseButton1Click:Connect(function()
+            local newState = not getState()
+            setState(newState)
+            btn.BackgroundColor3 = newState and (colorOn or Color3.fromRGB(145, 210, 240)) or Color3.fromRGB(200, 215, 230)
+        end)
+
+        return btn
+    end
+
+    -- ❄️ UI Toggle
+    makeFloatBtn("❄️ UI", function() return _G.UIVisible end, function(v)
+        _G.UIVisible = v
+        if WindowOuterBorder then WindowOuterBorder.Visible = v end
+    end, Color3.fromRGB(100, 180, 255))
+
+    -- Speed Toggle
+    makeFloatBtn("⚡ SPD", function() return _G.SpeedActive end, function(v)
+        _G.SpeedMaster = true
+        _G.SpeedActive = v
+    end, Color3.fromRGB(255, 200, 80))
+
+    -- Flamelock Toggle (forces Toggle mode on mobile)
+    makeFloatBtn("🔥 FLM", function() return _G.FlameActive end, function(v)
+        _G.FlamelockEnabled = true
+        _G.FlameMode = "Toggle"
+        _G.FlameActive = v
+        if v then
+            local target = getFlameTarget()
+            if target then
+                flameTargetPart = target
+            else
+                _G.FlameActive = false
+                flameTargetPart = nil
+            end
+        else
+            flameTargetPart = nil
+        end
+    end, Color3.fromRGB(255, 120, 80))
+
+    -- Camlock Toggle
+    makeFloatBtn("📷 CAM", function() return Camlock.Active end, function(v)
+        _G.CamlockEnabled = true
+        _G.CamlockMode = "Toggle"
+        if v then
+            EnableCamlock()
+        else
+            DisableCamlock()
+        end
+    end, Color3.fromRGB(180, 140, 255))
+
+    -- Silent Aim quick toggle
+    makeFloatBtn("🎯 AIM", function() return _G.SilentAimEnabled end, function(v)
+        _G.SilentAimEnabled = v
+    end, Color3.fromRGB(100, 255, 160))
+
+    -- Make the float bar draggable
+    local dragging, dragStart, startPos
+    FloatBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = FloatBar.Position
+        end
+    end)
+    FloatBar.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+            local delta = input.Position - dragStart
+            FloatBar.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    -- Notification
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "❄️ ilsa.main ❄️",
+        Text = "Mobile mode: floating toggles ready",
+        Duration = 3
+    })
+end
